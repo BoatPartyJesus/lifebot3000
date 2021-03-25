@@ -2,8 +2,8 @@ package main
 
 import (
 	"awesomeProject/configuration"
-	"awesomeProject/entities"
 	"awesomeProject/handlers"
+	"flag"
 	"fmt"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 )
@@ -18,13 +19,11 @@ import (
 func main() {
 	fmt.Println("Starting a thing")
 
-	//configFile := whatever arg 1 is...
-	//botConfig := configuration.LoadConfiguration(configFile)
-	botConfig := entities.LifeBotConfig{
-		AppToken: "",
-		BotToken: "",
-		Channels: nil,
-	}
+	var configFile string
+	flag.StringVar(&configFile, "c", "config", "Specify config location")
+	flag.Parse()
+
+	botConfig := configuration.LoadConfiguration(configFile)
 
 	api := slack.New(
 		botConfig.BotToken,
@@ -53,6 +52,21 @@ func main() {
 				fmt.Println("Connected to api")
 			case socketmode.EventTypeHello:
 				fmt.Println("Oh, HELLO THERE")
+
+				testResult, _ := api.AuthTest()
+				fmt.Println(testResult)
+				params := slack.GetConversationsForUserParameters{
+					UserID:          testResult.UserID,
+					Cursor:          "",
+					Types:           []string{"private_channel", "public_channel"},
+					Limit:           0,
+					ExcludeArchived: false,
+				}
+				result, _, err := api.GetConversationsForUser(&params)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Println(result)
 			case socketmode.EventTypeEventsAPI:
 				eventsAPIEvent, ok := event.Data.(slackevents.EventsAPIEvent)
 				if !ok {
@@ -69,16 +83,15 @@ func main() {
 					innerEvent := eventsAPIEvent.InnerEvent
 					switch ev := innerEvent.Data.(type) {
 					case *slackevents.AppMentionEvent:
-						if strings.Contains(ev.Text, "addme") == true {
-							command := "addme"
+						idPattern, _ := regexp.Compile("<@\\w{11}>\\W*")
+						args := strings.Split(idPattern.ReplaceAllLiteralString(ev.Text, ""), " ")
 
-							handler := handlers[command]
-							if handler == nil {
-								return
-							}
-
-							handler(eventsAPIEvent, api)
+						handler := handlers[args[0]]
+						if handler == nil {
+							return
 						}
+
+						handler(eventsAPIEvent, api)
 					case *slackevents.MemberJoinedChannelEvent:
 						fmt.Printf("user %q joined to channel %q", ev.User, ev.Channel)
 					}

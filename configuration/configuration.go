@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 func LoadConfiguration(configFile string) entities.LifeBotConfig {
@@ -27,6 +28,7 @@ func SaveConfiguration(configFile string, currentConfiguration entities.LifeBotC
 		os.Create(configFile)
 	}
 
+	currentConfiguration.LastUpdated = time.Now()
 	storedState, _ := json.MarshalIndent(currentConfiguration, "", "  ")
 	_ = ioutil.WriteFile(configFile, storedState, 0644)
 }
