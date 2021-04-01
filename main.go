@@ -1,13 +1,15 @@
 package main
 
 import (
-	"awesomeProject/configuration"
-	"awesomeProject/handlers"
 	"flag"
 	"fmt"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+	"lifebot3000/configuration"
+	"lifebot3000/entities"
+	"lifebot3000/handlers"
+	"lifebot3000/helpers"
 	"log"
 	"os"
 	"os/signal"
@@ -36,9 +38,10 @@ func main() {
 		socketmode.OptionDebug(true),
 		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)))
 
-	handlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client){
-		"addme": handlers.AddMeHandler,
-		"list":  handlers.ListHandler,
+	handlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
+		"addme":    handlers.AddMeHandler,
+		"list":     handlers.ListHandler,
+		"removeme": handlers.RemoveMeHandler,
 	}
 
 	go func() {
@@ -62,11 +65,16 @@ func main() {
 					Limit:           0,
 					ExcludeArchived: false,
 				}
+
 				result, _, err := api.GetConversationsForUser(&params)
 				if err != nil {
 					fmt.Println(err)
 				}
-				fmt.Println(result)
+
+				for _, ch := range result {
+					botConfig.Channels = channelHelper.RetrieveOrCreate(ch, botConfig.Channels)
+				}
+
 			case socketmode.EventTypeEventsAPI:
 				eventsAPIEvent, ok := event.Data.(slackevents.EventsAPIEvent)
 				if !ok {
@@ -86,12 +94,16 @@ func main() {
 						idPattern, _ := regexp.Compile("<@\\w{11}>\\W*")
 						args := strings.Split(idPattern.ReplaceAllLiteralString(ev.Text, ""), " ")
 
+						if args[0] == "" {
+							_, _, _ = api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("<@%s>...\n", ev.User), false))
+						}
+
 						handler := handlers[args[0]]
 						if handler == nil {
 							return
 						}
 
-						handler(eventsAPIEvent, api)
+						botConfig = handler(eventsAPIEvent, api, botConfig)
 					case *slackevents.MemberJoinedChannelEvent:
 						fmt.Printf("user %q joined to channel %q", ev.User, ev.Channel)
 					}

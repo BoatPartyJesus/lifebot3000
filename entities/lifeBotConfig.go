@@ -5,6 +5,7 @@ import "time"
 type LifeBotConfig struct {
 	AppToken    string
 	BotToken    string
+	ADPat       string
 	Channels    []Channel
 	LastUpdated time.Time
 }

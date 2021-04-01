@@ -1,9 +1,9 @@
 package configuration
 
 import (
-	"awesomeProject/entities"
 	"encoding/json"
 	"io/ioutil"
+	"lifebot3000/entities"
 	"os"
 	"time"
 )
