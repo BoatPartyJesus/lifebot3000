@@ -3,20 +3,41 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
-	"github.com/slack-go/slack/socketmode"
 	"lifebot3000/configuration"
 	"lifebot3000/entities"
 	"lifebot3000/handlers"
-	"lifebot3000/helpers"
+	channelHelper "lifebot3000/helpers"
 	"log"
 	"os"
-	"os/signal"
 	"regexp"
 	"strings"
-	"syscall"
+
+	"github.com/jasonlvhit/gocron"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
+	"github.com/slack-go/slack/socketmode"
 )
+
+func pickWinners(config *entities.LifeBotConfig) error {
+	fmt.Println("This task will run periodically")
+
+	channels := config.Channels
+
+	for _, channel := range channels {
+		luckyWinner := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
+	}
+
+	return nil
+}
+
+func pickAWinnerCron(config *entities.LifeBotConfig) {
+	gocron.Every(1).Monday().At("09:00").Do(pickWinners(config))
+	gocron.Every(1).Tuesday().At("09:00").Do(pickWinners(config))
+	gocron.Every(1).Wednesday().At("09:00").Do(pickWinners(config))
+	gocron.Every(1).Thursday().At("09:00").Do(pickWinners(config))
+	gocron.Every(1).Friday().At("09:00").Do(pickWinners(config))
+	<-gocron.Start()
+}
 
 func main() {
 	fmt.Println("Starting a thing")
@@ -43,6 +64,8 @@ func main() {
 		"list":     handlers.ListHandler,
 		"removeme": handlers.RemoveMeHandler,
 	}
+
+	go pickAWinnerCron(&botConfig)
 
 	go func() {
 		for event := range client.Events {
@@ -91,7 +114,7 @@ func main() {
 					innerEvent := eventsAPIEvent.InnerEvent
 					switch ev := innerEvent.Data.(type) {
 					case *slackevents.AppMentionEvent:
-						idPattern, _ := regexp.Compile("<@\\w{11}>\\W*")
+						idPattern, _ := regexp.Compile(`<@\w{11}>\W*`)
 						args := strings.Split(idPattern.ReplaceAllLiteralString(ev.Text, ""), " ")
 
 						if args[0] == "" {
@@ -118,9 +141,9 @@ func main() {
 
 	client.Run()
 
-	signalChannel := make(chan os.Signal)
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
-	<-signalChannel
+	// signalChannel := make(chan os.Signal)
+	// signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGTERM)
+	// <-signalChannel
 
 	//configuration.SaveConfiguration(configFile, botConfig)
 

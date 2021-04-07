@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
 	"lifebot3000/entities"
 	channelHelper "lifebot3000/helpers"
+
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
@@ -21,6 +22,8 @@ func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botCon
 			if channelHelper.Find(requiredChannel.EligibleUsers, event.User) {
 				message = fmt.Sprintf("OK, I've removed <@%s> from %s", event.User, requiredChannel.ChannelName)
 				requiredChannel.EligibleUsers = channelHelper.Remove(requiredChannel.EligibleUsers, event.User)
+				requiredChannel.RecentUsers = channelHelper.Remove(requiredChannel.RecentUsers, event.User)
+				requiredChannel.ExemptUsers = channelHelper.Remove(requiredChannel.ExemptUsers, event.User)
 			} else {
 				message = fmt.Sprintf("You weren't in %s...", requiredChannel.ChannelName)
 			}
@@ -31,5 +34,8 @@ func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botCon
 			}
 		}
 	}
+
+	botConfig.SaveCurrentState()
+
 	return botConfig
 }

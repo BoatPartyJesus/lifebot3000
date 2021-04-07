@@ -1,8 +1,11 @@
 package channelHelper
 
 import (
-	"github.com/slack-go/slack"
 	"lifebot3000/entities"
+	"math/rand"
+	"time"
+
+	"github.com/slack-go/slack"
 )
 
 func RetrieveOrCreate(foundChannel slack.Channel, knownChannels []entities.Channel) []entities.Channel {
@@ -46,4 +49,20 @@ func Remove(s []string, x string) []string {
 		}
 	}
 	return s
+}
+
+func PseudoRandomSelect(eligible []string, recent []string) string {
+	for i := 0; i < len(eligible); i++ {
+		user := eligible[i]
+		for _, r := range recent {
+			if user == r {
+				eligible = append(eligible[:i], eligible[i+1:]...)
+				i--
+				break
+			}
+		}
+	}
+
+	rand.Seed(time.Now().Unix())
+	return eligible[rand.Intn(len(eligible))]
 }

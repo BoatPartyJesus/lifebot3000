@@ -13,7 +13,10 @@ func LoadConfiguration(configFile string) entities.LifeBotConfig {
 	if err != nil {
 		os.Create(configFile)
 	}
-	config := entities.LifeBotConfig{}
+
+	config := entities.LifeBotConfig{
+		FileLocation: configFile,
+	}
 
 	if file != nil {
 		_ = json.Unmarshal(file, &config)

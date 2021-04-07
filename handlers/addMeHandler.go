@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
 	"lifebot3000/entities"
 	channelHelper "lifebot3000/helpers"
+
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 func AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
@@ -31,5 +32,8 @@ func AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig
 			}
 		}
 	}
+
+	botConfig.SaveCurrentState()
+
 	return botConfig
 }
