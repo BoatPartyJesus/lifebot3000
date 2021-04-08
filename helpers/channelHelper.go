@@ -1,6 +1,7 @@
 package channelHelper
 
 import (
+	"errors"
 	"lifebot3000/entities"
 	"math/rand"
 	"time"
@@ -51,18 +52,37 @@ func Remove(s []string, x string) []string {
 	return s
 }
 
-func PseudoRandomSelect(eligible []string, recent []string) string {
-	for i := 0; i < len(eligible); i++ {
-		user := eligible[i]
+func AddRecentUser(s []string, x string) []string {
+	s = append(s, x)
+	if len(s) > 3 {
+		s = s[1:]
+	}
+	return s
+}
+
+func PseudoRandomSelect(eligible []string, recent []string) (string, error) {
+
+	var pickableNames []string
+
+	for _, user := range eligible {
+		found := false
 		for _, r := range recent {
 			if user == r {
-				eligible = append(eligible[:i], eligible[i+1:]...)
-				i--
+				found = true
 				break
 			}
+		}
+
+		if !found {
+			pickableNames = append(pickableNames, user)
 		}
 	}
 
 	rand.Seed(time.Now().Unix())
-	return eligible[rand.Intn(len(eligible))]
+
+	if len(pickableNames) == 0 {
+		return "", errors.New("no eligible users in channel")
+	} else {
+		return pickableNames[rand.Intn(len(pickableNames))], nil
+	}
 }

@@ -11,32 +11,37 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
-	"github.com/jasonlvhit/gocron"
+	"github.com/go-co-op/gocron"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 )
 
-func pickWinners(config *entities.LifeBotConfig) error {
+func pickAWinnerCron(config *entities.LifeBotConfig) {
+	s := gocron.NewScheduler(time.UTC)
+	// s.Cron("0 9 * * 1-5").Do(pickWinners(config)) // 9am daily
+	s.Cron("* * * * *").Do(pickWinners, config) // every min
+	s.StartBlocking()
+}
+
+var pickWinners = func(config *entities.LifeBotConfig) {
 	fmt.Println("This task will run periodically")
 
 	channels := config.Channels
 
-	for _, channel := range channels {
-		luckyWinner := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
+	for index, channel := range channels {
+		luckyWinner, err := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
+
+		if err != nil {
+			fmt.Println("No eligible users to pick.")
+		} else {
+			fmt.Println("Winner:" + luckyWinner)
+			config.Channels[index].RecentUsers = channelHelper.AddRecentUser(channel.RecentUsers, luckyWinner)
+			config.SaveCurrentState()
+		}
 	}
-
-	return nil
-}
-
-func pickAWinnerCron(config *entities.LifeBotConfig) {
-	gocron.Every(1).Monday().At("09:00").Do(pickWinners(config))
-	gocron.Every(1).Tuesday().At("09:00").Do(pickWinners(config))
-	gocron.Every(1).Wednesday().At("09:00").Do(pickWinners(config))
-	gocron.Every(1).Thursday().At("09:00").Do(pickWinners(config))
-	gocron.Every(1).Friday().At("09:00").Do(pickWinners(config))
-	<-gocron.Start()
 }
 
 func main() {
@@ -66,6 +71,8 @@ func main() {
 	}
 
 	go pickAWinnerCron(&botConfig)
+
+	// _ = pickWinners(&botConfig)
 
 	go func() {
 		for event := range client.Events {
