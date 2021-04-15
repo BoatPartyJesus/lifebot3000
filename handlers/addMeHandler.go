@@ -9,7 +9,7 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
-func AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
 	fmt.Println("AddMeHandler")
 	event := ev.InnerEvent.Data.(*slackevents.AppMentionEvent)
 
@@ -34,6 +34,15 @@ func AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig
 	}
 
 	botConfig.SaveCurrentState()
+
+	return botConfig
+}
+
+func MessageAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+	fmt.Println("AddMeHandler")
+	event := ev.InnerEvent.Data.(*slackevents.MessageEvent)
+
+	_, _, _ = client.PostMessage(event.Channel, slack.MsgOptionText("Err... Ok. You win. Congratulations, I guess... :tada:", false))
 
 	return botConfig
 }

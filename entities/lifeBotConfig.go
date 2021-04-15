@@ -8,12 +8,13 @@ import (
 )
 
 type LifeBotConfig struct {
-	FileLocation string
-	AppToken     string
-	BotToken     string
-	ADPat        string
-	Channels     []Channel
-	LastUpdated  time.Time
+	FileLocation          string
+	AppToken              string
+	BotToken              string
+	ADPat                 string
+	Channels              []Channel
+	ExcludedSlackStatuses []string
+	LastUpdated           time.Time
 }
 
 type Channel struct {

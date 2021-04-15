@@ -19,22 +19,33 @@ import (
 	"github.com/slack-go/slack/socketmode"
 )
 
-func pickAWinnerCron(config *entities.LifeBotConfig) {
+func pickAWinnerCron(api *slack.Client, config *entities.LifeBotConfig) {
 	s := gocron.NewScheduler(time.UTC)
 	// s.Cron("0 9 * * 1-5").Do(pickWinners(config)) // 9am daily
-	s.Cron("* * * * *").Do(pickWinners, config) // every min
+	s.Cron("* * * * *").Do(pickWinners, api, config) // every min
 	s.StartBlocking()
 }
 
-var pickWinners = func(config *entities.LifeBotConfig) {
-	fmt.Println("This task will run periodically")
+var pickWinners = func(api *slack.Client, config *entities.LifeBotConfig) {
+	fmt.Println("Picking a random scrum master...")
 
 	channels := config.Channels
 
 	for index, channel := range channels {
-		luckyWinner, err := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
 
-		if err != nil {
+		var luckyWinner string
+
+		for {
+			user, _ := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
+			userProfile, _ := api.GetUserProfile(user, true)
+
+			if !channelHelper.Find(config.ExcludedSlackStatuses, userProfile.StatusText) {
+				luckyWinner = user
+				break
+			}
+		}
+
+		if luckyWinner == "" {
 			fmt.Println("No eligible users to pick.")
 		} else {
 			fmt.Println("Winner:" + luckyWinner)
@@ -64,15 +75,18 @@ func main() {
 		socketmode.OptionDebug(true),
 		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)))
 
-	handlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
-		"addme":    handlers.AddMeHandler,
+	channelHandlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
+		"addme":    handlers.ChannelAddMeHandler,
 		"list":     handlers.ListHandler,
 		"removeme": handlers.RemoveMeHandler,
 	}
+	// messageHandlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
+	// 	"addme":    handlers.MessageAddMeHandler,
+	// 	"list":     handlers.ListHandler,
+	// 	"removeme": handlers.RemoveMeHandler,
+	// }
 
-	go pickAWinnerCron(&botConfig)
-
-	// _ = pickWinners(&botConfig)
+	go pickAWinnerCron(api, &botConfig)
 
 	go func() {
 		for event := range client.Events {
@@ -84,8 +98,6 @@ func main() {
 			case socketmode.EventTypeConnected:
 				fmt.Println("Connected to api")
 			case socketmode.EventTypeHello:
-				fmt.Println("Oh, HELLO THERE")
-
 				testResult, _ := api.AuthTest()
 				fmt.Println(testResult)
 				params := slack.GetConversationsForUserParameters{
@@ -128,12 +140,26 @@ func main() {
 							_, _, _ = api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("<@%s>...\n", ev.User), false))
 						}
 
-						handler := handlers[args[0]]
+						handler := channelHandlers[args[0]]
 						if handler == nil {
 							return
 						}
 
 						botConfig = handler(eventsAPIEvent, api, botConfig)
+					// case *slackevents.MessageEvent: // Different interface, can't bundle nicely... yet...
+					// 	idPattern, _ := regexp.Compile(`<@\w{11}>\W*`)
+					// 	args := strings.Split(idPattern.ReplaceAllLiteralString(ev.Text, ""), " ")
+
+					// 	if args[0] == "" {
+					// 		_, _, _ = api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("<@%s>...\n", ev.User), false))
+					// 	}
+
+					// 	handler := messageHandlers[args[0]]
+					// 	if handler == nil {
+					// 		return
+					// 	}
+
+					// 	botConfig = handler(eventsAPIEvent, api, botConfig)
 					case *slackevents.MemberJoinedChannelEvent:
 						fmt.Printf("user %q joined to channel %q", ev.User, ev.Channel)
 					}
