@@ -2,7 +2,7 @@ package channelHelper
 
 import (
 	"errors"
-	"lifebot3000/entities"
+	"meeseeks/entities"
 	"math/rand"
 	"time"
 

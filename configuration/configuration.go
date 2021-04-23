@@ -3,7 +3,7 @@ package configuration
 import (
 	"encoding/json"
 	"io/ioutil"
-	"lifebot3000/entities"
+	"meeseeks/entities"
 	"os"
 	"time"
 )

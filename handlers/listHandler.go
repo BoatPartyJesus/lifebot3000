@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
-	"lifebot3000/entities"
+	"meeseeks/entities"
 )
 
 func ListHandler(event slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {

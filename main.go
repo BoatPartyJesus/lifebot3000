@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"lifebot3000/configuration"
-	"lifebot3000/entities"
-	"lifebot3000/handlers"
-	channelHelper "lifebot3000/helpers"
 	"log"
+	"meeseeks/configuration"
+	"meeseeks/entities"
+	"meeseeks/handlers"
+	channelHelper "meeseeks/helpers"
 	"os"
 	"regexp"
 	"strings"
@@ -63,15 +63,12 @@ func main() {
 	flag.Parse()
 
 	botConfig := configuration.LoadConfiguration(configFile)
+	meeseeks := new(channelHelper.MeeseeksSlack)
+	meeseeks.New(&botConfig)
 
-	api := slack.New(
-		botConfig.BotToken,
-		slack.OptionDebug(true),
-		slack.OptionLog(log.New(os.Stdout, "api: ", log.Lshortfile|log.LstdFlags)),
-		slack.OptionAppLevelToken(botConfig.AppToken))
-
+	api := meeseeks.Slack
 	client := socketmode.New(
-		api,
+		meeseeks.Slack,
 		socketmode.OptionDebug(true),
 		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)))
 

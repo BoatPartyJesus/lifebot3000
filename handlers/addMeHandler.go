@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"fmt"
-	"lifebot3000/entities"
-	channelHelper "lifebot3000/helpers"
+	"meeseeks/entities"
+	channelHelper "meeseeks/helpers"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"

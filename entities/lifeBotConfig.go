@@ -17,14 +17,6 @@ type LifeBotConfig struct {
 	LastUpdated           time.Time
 }
 
-type Channel struct {
-	ChannelName   string
-	ChannelId     string
-	EligibleUsers []string
-	ExemptUsers   []string
-	RecentUsers   []string
-}
-
 func (c LifeBotConfig) SaveCurrentState() {
 	_, err := os.Stat(c.FileLocation)
 	if err != nil {
