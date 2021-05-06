@@ -3,18 +3,19 @@ package configuration
 import (
 	"encoding/json"
 	"io/ioutil"
-	"meeseeks/entities"
+	"meeseeks/entity"
+
 	"os"
 	"time"
 )
 
-func LoadConfiguration(configFile string) entities.LifeBotConfig {
+func LoadConfiguration(configFile string) entity.MeeseeksConfig {
 	file, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		os.Create(configFile)
 	}
 
-	config := entities.LifeBotConfig{
+	config := entity.MeeseeksConfig{
 		FileLocation: configFile,
 	}
 
@@ -25,7 +26,7 @@ func LoadConfiguration(configFile string) entities.LifeBotConfig {
 	return config
 }
 
-func SaveConfiguration(configFile string, currentConfiguration entities.LifeBotConfig) {
+func SaveConfiguration(configFile string, currentConfiguration entity.MeeseeksConfig) {
 	_, err := os.Stat(configFile)
 	if err != nil {
 		os.Create(configFile)

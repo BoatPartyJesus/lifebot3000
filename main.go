@@ -5,85 +5,46 @@ import (
 	"fmt"
 	"log"
 	"meeseeks/configuration"
-	"meeseeks/entities"
-	"meeseeks/handlers"
-	channelHelper "meeseeks/helpers"
+	"meeseeks/entity"
+	"meeseeks/handler"
+	rsm "meeseeks/randomscrummaster"
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
-	"github.com/go-co-op/gocron"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 )
 
-func pickAWinnerCron(api *slack.Client, config *entities.LifeBotConfig) {
-	s := gocron.NewScheduler(time.UTC)
-	// s.Cron("0 9 * * 1-5").Do(pickWinners(config)) // 9am daily
-	s.Cron("* * * * *").Do(pickWinners, api, config) // every min
-	s.StartBlocking()
-}
-
-var pickWinners = func(api *slack.Client, config *entities.LifeBotConfig) {
-	fmt.Println("Picking a random scrum master...")
-
-	channels := config.Channels
-
-	for index, channel := range channels {
-
-		var luckyWinner string
-
-		for {
-			user, _ := channelHelper.PseudoRandomSelect(channel.EligibleUsers, channel.RecentUsers)
-			userProfile, _ := api.GetUserProfile(user, true)
-
-			if !channelHelper.Find(config.ExcludedSlackStatuses, userProfile.StatusText) {
-				luckyWinner = user
-				break
-			}
-		}
-
-		if luckyWinner == "" {
-			fmt.Println("No eligible users to pick.")
-		} else {
-			fmt.Println("Winner:" + luckyWinner)
-			config.Channels[index].RecentUsers = channelHelper.AddRecentUser(channel.RecentUsers, luckyWinner)
-			config.SaveCurrentState()
-		}
-	}
-}
-
 func main() {
-	fmt.Println("Starting a thing")
-
 	var configFile string
 	flag.StringVar(&configFile, "c", "config", "Specify config location")
 	flag.Parse()
 
 	botConfig := configuration.LoadConfiguration(configFile)
-	meeseeks := new(channelHelper.MeeseeksSlack)
+	meeseeks := new(entity.MeeseeksSlack)
 	meeseeks.New(&botConfig)
 
 	api := meeseeks.Slack
 	client := socketmode.New(
-		meeseeks.Slack,
+		api,
 		socketmode.OptionDebug(true),
 		socketmode.OptionLog(log.New(os.Stdout, "socketmode: ", log.Lshortfile|log.LstdFlags)))
 
-	channelHandlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
-		"addme":    handlers.ChannelAddMeHandler,
-		"list":     handlers.ListHandler,
-		"removeme": handlers.RemoveMeHandler,
+	channelhandler := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig{
+		"addme":    handler.ChannelAddMeHandler,
+		"list":     handler.ListHandler,
+		"removeme": handler.RemoveMeHandler,
 	}
-	// messageHandlers := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig{
-	// 	"addme":    handlers.MessageAddMeHandler,
-	// 	"list":     handlers.ListHandler,
-	// 	"removeme": handlers.RemoveMeHandler,
+
+	// messagehandler := map[string]func(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.LifeBotConfig) entity.LifeBotConfig{
+	// 	"addme":    handler.MessageAddMeHandler,
+	// 	"list":     handler.ListHandler,
+	// 	"removeme": handler.RemoveMeHandler,
 	// }
 
-	go pickAWinnerCron(api, &botConfig)
+	go rsm.PickAWinnerCron(meeseeks, &botConfig)
 
 	go func() {
 		for event := range client.Events {
@@ -111,7 +72,7 @@ func main() {
 				}
 
 				for _, ch := range result {
-					botConfig.Channels = channelHelper.RetrieveOrCreate(ch, botConfig.Channels)
+					botConfig.Channels = entity.RetrieveOrCreateChannel(ch, botConfig.Channels)
 				}
 
 			case socketmode.EventTypeEventsAPI:
@@ -137,7 +98,7 @@ func main() {
 							_, _, _ = api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("<@%s>...\n", ev.User), false))
 						}
 
-						handler := channelHandlers[args[0]]
+						handler := channelhandler[args[0]]
 						if handler == nil {
 							return
 						}
@@ -151,7 +112,7 @@ func main() {
 					// 		_, _, _ = api.PostMessage(ev.Channel, slack.MsgOptionText(fmt.Sprintf("<@%s>...\n", ev.User), false))
 					// 	}
 
-					// 	handler := messageHandlers[args[0]]
+					// 	handler := messagehandler[args[0]]
 					// 	if handler == nil {
 					// 		return
 					// 	}
@@ -163,6 +124,46 @@ func main() {
 				default:
 					client.Debugf("unsupported Events API event received")
 				}
+			case socketmode.EventTypeInteractive:
+				callback, ok := event.Data.(slack.InteractionCallback)
+				if !ok {
+					fmt.Printf("Ignored %+v\n", event)
+
+					continue
+				}
+
+				fmt.Printf("Interaction received: %+v\n", callback)
+
+				var payload interface{}
+
+				switch callback.Type {
+				case slack.InteractionTypeBlockActions:
+					// See https://api.slack.com/apis/connections/socket-implement#button
+
+					requiredAction := callback.ActionCallback.BlockActions[0].ActionID
+
+					if requiredAction == "rsm_reroll" {
+						rerolledChannel := callback.Container.ChannelID
+						rsm.PickWinnerByChannel(meeseeks, &botConfig, rerolledChannel)
+					}
+
+					if requiredAction == "rsm_volunteer" {
+						volunteerChannel := callback.Container.ChannelID
+						volunteer := callback.User.ID
+
+						_, _, _ = meeseeks.Slack.PostMessage(volunteerChannel, slack.MsgOptionText("https://media.giphy.com/media/54JLdulN5BOwM/giphy.gif", false))
+						_, _, _ = meeseeks.Slack.PostMessage(volunteerChannel, slack.MsgOptionText(fmt.Sprintf("<@%s> volunteered to be today's Random Scrum Master! \n", volunteer), false))
+					}
+
+				case slack.InteractionTypeShortcut:
+				case slack.InteractionTypeViewSubmission:
+					// See https://api.slack.com/apis/connections/socket-implement#modal
+				case slack.InteractionTypeDialogSubmission:
+				default:
+
+				}
+
+				client.Ack(*event.Request, payload)
 			default:
 				fmt.Printf("Unexpected event type received: %s\n\n", event.Type)
 			}

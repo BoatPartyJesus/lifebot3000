@@ -1,13 +1,14 @@
-package handlers
+package handler
 
 import (
 	"fmt"
+	"meeseeks/entity"
+
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
-	"meeseeks/entities"
 )
 
-func ListHandler(event slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+func ListHandler(event slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
 	fmt.Println("ListHandler")
 	//do things
 	// requiredList options

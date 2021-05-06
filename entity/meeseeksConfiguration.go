@@ -1,13 +1,15 @@
-package entities
+package entity
 
 import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/slack-go/slack"
 )
 
-type LifeBotConfig struct {
+type MeeseeksConfig struct {
 	FileLocation          string
 	AppToken              string
 	BotToken              string
@@ -17,7 +19,7 @@ type LifeBotConfig struct {
 	LastUpdated           time.Time
 }
 
-func (c LifeBotConfig) SaveCurrentState() {
+func (c MeeseeksConfig) SaveCurrentState() {
 	_, err := os.Stat(c.FileLocation)
 	if err != nil {
 		os.Create(c.FileLocation)
@@ -28,12 +30,12 @@ func (c LifeBotConfig) SaveCurrentState() {
 	_ = ioutil.WriteFile(c.FileLocation, storedState, 0644)
 }
 
-func (c LifeBotConfig) LoadState(fileLocation string) {
+func (c MeeseeksConfig) LoadState(fileLocation string) {
 	file, err := ioutil.ReadFile(fileLocation)
 	if err != nil {
 		os.Create(fileLocation)
 	}
-	config := LifeBotConfig{}
+	config := MeeseeksConfig{}
 
 	if file != nil {
 		_ = json.Unmarshal(file, &config)
@@ -41,4 +43,28 @@ func (c LifeBotConfig) LoadState(fileLocation string) {
 
 	c.FileLocation = fileLocation // migration step for older files - remove
 	c = config
+}
+
+func RetrieveOrCreateChannel(foundChannel slack.Channel, knownChannels []Channel) []Channel {
+
+	found := false
+
+	for _, ch := range knownChannels {
+		if ch.ChannelId == foundChannel.ID {
+			found = true
+		}
+	}
+
+	if !found {
+		knownChannels = append(knownChannels,
+			Channel{
+				ChannelName:   foundChannel.NameNormalized,
+				ChannelId:     foundChannel.ID,
+				EligibleUsers: nil,
+				ExemptUsers:   nil,
+				RecentUsers:   nil,
+			})
+	}
+
+	return knownChannels
 }

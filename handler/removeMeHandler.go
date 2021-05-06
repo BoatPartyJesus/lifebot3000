@@ -1,15 +1,14 @@
-package handlers
+package handler
 
 import (
 	"fmt"
-	"meeseeks/entities"
-	channelHelper "meeseeks/helpers"
+	"meeseeks/entity"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
-func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
 	fmt.Println("RemoveMeHandler")
 	event := ev.InnerEvent.Data.(*slackevents.AppMentionEvent)
 
@@ -19,11 +18,11 @@ func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botCon
 
 			var message string
 
-			if channelHelper.Find(requiredChannel.EligibleUsers, event.User) {
+			if ch.Find(requiredChannel.EligibleUsers, event.User) {
 				message = fmt.Sprintf("OK, I've removed <@%s> from %s", event.User, requiredChannel.ChannelName)
-				requiredChannel.EligibleUsers = channelHelper.Remove(requiredChannel.EligibleUsers, event.User)
-				requiredChannel.RecentUsers = channelHelper.Remove(requiredChannel.RecentUsers, event.User)
-				requiredChannel.ExemptUsers = channelHelper.Remove(requiredChannel.ExemptUsers, event.User)
+				requiredChannel.EligibleUsers = ch.Remove(requiredChannel.EligibleUsers, event.User)
+				requiredChannel.RecentUsers = ch.Remove(requiredChannel.RecentUsers, event.User)
+				requiredChannel.ExemptUsers = ch.Remove(requiredChannel.ExemptUsers, event.User)
 			} else {
 				message = fmt.Sprintf("You weren't in %s...", requiredChannel.ChannelName)
 			}

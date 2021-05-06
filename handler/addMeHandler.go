@@ -1,15 +1,14 @@
-package handlers
+package handler
 
 import (
 	"fmt"
-	"meeseeks/entities"
-	channelHelper "meeseeks/helpers"
+	"meeseeks/entity"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
-func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
 	fmt.Println("AddMeHandler")
 	event := ev.InnerEvent.Data.(*slackevents.AppMentionEvent)
 
@@ -19,7 +18,7 @@ func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, bo
 
 			var message string
 
-			if channelHelper.Find(requiredChannel.EligibleUsers, event.User) {
+			if ch.Find(requiredChannel.EligibleUsers, event.User) {
 				message = fmt.Sprintf("You are already in %s", requiredChannel.ChannelName)
 			} else {
 				requiredChannel.EligibleUsers = append(requiredChannel.EligibleUsers, event.User)
@@ -38,7 +37,7 @@ func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, bo
 	return botConfig
 }
 
-func MessageAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entities.LifeBotConfig) entities.LifeBotConfig {
+func MessageAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
 	fmt.Println("AddMeHandler")
 	event := ev.InnerEvent.Data.(*slackevents.MessageEvent)
 
