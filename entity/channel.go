@@ -6,15 +6,22 @@ import (
 	"time"
 )
 
+type IChannel interface {
+	PickAWinner(meeseeks IMeeseeksSlack) (string, error)
+	IsEligibleUser(x string) bool
+	AddEligibleUser(x string) []string
+	RemoveEligibleUser(x string) []string
+	AddRecentUser(x string) []string
+}
+
 type Channel struct {
 	ChannelName   string
 	ChannelId     string
 	EligibleUsers []string
-	ExemptUsers   []string
 	RecentUsers   []string
 }
 
-func (channel Channel) PickAWinner(meeseeks *MeeseeksSlack) (string, error) {
+func (channel Channel) PickAWinner(meeseeks IMeeseeksSlack) (string, error) {
 	var pickableNames []string
 
 	availableUsers := meeseeks.GetAvailableUsers(channel.EligibleUsers)
@@ -42,16 +49,43 @@ func (channel Channel) PickAWinner(meeseeks *MeeseeksSlack) (string, error) {
 	}
 }
 
+func (channel Channel) IsEligibleUser(x string) bool {
+	s := channel.EligibleUsers
+	return find(s, x)
+}
+
+func (channel Channel) AddEligibleUser(x string) []string {
+	s := channel.EligibleUsers
+	if !find(s, x) {
+		s = append(s, x)
+	}
+	return s
+}
+
+func (channel Channel) RemoveEligibleUser(x string) ([]string, []string) {
+	e := channel.EligibleUsers
+	r := channel.RecentUsers
+
+	if find(e, x) {
+		e = remove(e, x)
+		r = remove(r, x)
+	}
+
+	return e, r
+}
+
 func (channel Channel) AddRecentUser(x string) []string {
 	s := channel.RecentUsers
-	s = append(s, x)
+	if !find(s, x) {
+		s = append(s, x)
+	}
 	if len(s) > 3 {
 		s = s[1:]
 	}
 	return s
 }
 
-func (channel Channel) Remove(s []string, x string) []string {
+func remove(s []string, x string) []string {
 	for index, i := range s {
 		if i == x {
 			s[index] = s[len(s)-1]
@@ -61,7 +95,7 @@ func (channel Channel) Remove(s []string, x string) []string {
 	return s
 }
 
-func (channel Channel) Find(s []string, x string) bool {
+func find(s []string, x string) bool {
 	for _, i := range s {
 		if i == x {
 			return true

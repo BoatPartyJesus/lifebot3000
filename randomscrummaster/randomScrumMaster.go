@@ -3,13 +3,14 @@ package randomscrummaster
 import (
 	"fmt"
 	"meeseeks/entity"
+	"meeseeks/util"
 	"time"
 
 	"github.com/go-co-op/gocron"
 	"github.com/slack-go/slack"
 )
 
-func PickWinnerByChannel(meeseeks *entity.MeeseeksSlack, config *entity.MeeseeksConfig, requiredChannel string) {
+func PickWinnerByChannel(meeseeks *entity.MeeseeksSlack, config *entity.MeeseeksConfig, requiredChannel string, reroll bool) {
 	for index, channel := range config.Channels {
 		if channel.ChannelId == requiredChannel {
 
@@ -33,8 +34,13 @@ func PickWinnerByChannel(meeseeks *entity.MeeseeksSlack, config *entity.Meeseeks
 
 			} else {
 				fmt.Println("Winner:" + luckyWinner)
-				config.Channels[index].RecentUsers = channel.AddRecentUser(luckyWinner)
-				config.SaveCurrentState()
+				if reroll {
+					config.Channels[index].RecentUsers[2] = luckyWinner
+				} else {
+					config.Channels[index].RecentUsers = channel.AddRecentUser(luckyWinner)
+				}
+
+				config.SaveCurrentState(util.OsFileUtility{})
 
 				winnerMessage := fmt.Sprintf("Today's scrum master is <@%s>! :tada:\n", luckyWinner)
 
@@ -65,7 +71,7 @@ var pickWinners = func(meeseeks *entity.MeeseeksSlack, config *entity.MeeseeksCo
 	channels := config.Channels
 
 	for _, channel := range channels {
-		PickWinnerByChannel(meeseeks, config, channel.ChannelId)
+		PickWinnerByChannel(meeseeks, config, channel.ChannelId, false)
 	}
 }
 

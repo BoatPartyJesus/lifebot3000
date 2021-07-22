@@ -3,14 +3,48 @@ package handler
 import (
 	"fmt"
 	"meeseeks/entity"
+	"meeseeks/util"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
-func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
-	fmt.Println("RemoveMeHandler")
+type IRemoveMeHandler interface {
+	RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig, namedUser string) entity.MeeseeksConfig
+}
+
+func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig, namedUser string) entity.MeeseeksConfig {
 	event := ev.InnerEvent.Data.(*slackevents.AppMentionEvent)
+
+	user := namedUser
+	if user == "" {
+		user = event.User
+	}
+
+	// for index, ch := range botConfig.Channels {
+	// 	if ch.ChannelId == event.Channel {
+	// 		requiredChannel := &botConfig.Channels[index]
+
+	// 		var message string
+
+	// 		if ch.Find(requiredChannel.EligibleUsers, user) {
+	// 			message = fmt.Sprintf("OK, I've removed <@%s> from %s", user, requiredChannel.ChannelName)
+	// 			requiredChannel.EligibleUsers = ch.Remove(requiredChannel.EligibleUsers, user)
+	// 			requiredChannel.RecentUsers = ch.Remove(requiredChannel.RecentUsers, user)
+	// 		} else {
+	// 			if namedUser == "" {
+	// 				message = fmt.Sprintf("You weren't in %s...", requiredChannel.ChannelName)
+	// 			} else {
+	// 				message = fmt.Sprintf("<@%s> wasn't in %s...", user, requiredChannel.ChannelName)
+	// 			}
+	// 		}
+
+	// 		_, _, err := client.PostMessage(event.Channel, slack.MsgOptionText(message, false))
+	// 		if err != nil {
+	// 			fmt.Println(":(")
+	// 		}
+	// 	}
+	// }
 
 	for index, ch := range botConfig.Channels {
 		if ch.ChannelId == event.Channel {
@@ -18,13 +52,15 @@ func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botCon
 
 			var message string
 
-			if ch.Find(requiredChannel.EligibleUsers, event.User) {
-				message = fmt.Sprintf("OK, I've removed <@%s> from %s", event.User, requiredChannel.ChannelName)
-				requiredChannel.EligibleUsers = ch.Remove(requiredChannel.EligibleUsers, event.User)
-				requiredChannel.RecentUsers = ch.Remove(requiredChannel.RecentUsers, event.User)
-				requiredChannel.ExemptUsers = ch.Remove(requiredChannel.ExemptUsers, event.User)
+			if ch.IsEligibleUser(user) {
+				message = fmt.Sprintf("OK, I've removed <@%s> from %s", user, requiredChannel.ChannelName)
+				requiredChannel.EligibleUsers, requiredChannel.RecentUsers = ch.RemoveEligibleUser(user)
 			} else {
-				message = fmt.Sprintf("You weren't in %s...", requiredChannel.ChannelName)
+				if namedUser == "" {
+					message = fmt.Sprintf("You weren't in %s...", requiredChannel.ChannelName)
+				} else {
+					message = fmt.Sprintf("<@%s> wasn't in %s...", user, requiredChannel.ChannelName)
+				}
 			}
 
 			_, _, err := client.PostMessage(event.Channel, slack.MsgOptionText(message, false))
@@ -34,7 +70,7 @@ func RemoveMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botCon
 		}
 	}
 
-	botConfig.SaveCurrentState()
+	botConfig.SaveCurrentState(util.OsFileUtility{})
 
 	return botConfig
 }

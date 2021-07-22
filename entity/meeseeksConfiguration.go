@@ -2,12 +2,17 @@ package entity
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
+	"meeseeks/util"
 	"time"
 
 	"github.com/slack-go/slack"
 )
+
+type IMeeseeksConfiguration interface {
+	SaveCurrentState()
+	LoadConfigurationStateFromFile(fileLocation string) MeeseeksConfig
+	RetrieveOrCreateChannel(foundChannel slack.Channel, knownChannels []Channel) []Channel
+}
 
 type MeeseeksConfig struct {
 	FileLocation          string
@@ -19,30 +24,32 @@ type MeeseeksConfig struct {
 	LastUpdated           time.Time
 }
 
-func (c MeeseeksConfig) SaveCurrentState() {
-	_, err := os.Stat(c.FileLocation)
-	if err != nil {
-		os.Create(c.FileLocation)
+func (c MeeseeksConfig) SaveCurrentState(fu util.FileUtility) {
+	if !fu.DoesFileExist(c.FileLocation) {
+		fu.CreateFile(c.FileLocation)
 	}
 
 	c.LastUpdated = time.Now()
 	storedState, _ := json.MarshalIndent(c, "", "  ")
-	_ = ioutil.WriteFile(c.FileLocation, storedState, 0644)
+
+	fu.WriteFile(c.FileLocation, storedState)
 }
 
-func (c MeeseeksConfig) LoadState(fileLocation string) {
-	file, err := ioutil.ReadFile(fileLocation)
-	if err != nil {
-		os.Create(fileLocation)
+func LoadConfigurationStateFromFile(fu util.FileUtility, fileLocation string) MeeseeksConfig {
+	if !fu.DoesFileExist(fileLocation) {
+		fu.CreateFile(fileLocation)
 	}
+
+	file, _ := fu.ReadFile(fileLocation)
+
 	config := MeeseeksConfig{}
 
 	if file != nil {
 		_ = json.Unmarshal(file, &config)
 	}
 
-	c.FileLocation = fileLocation // migration step for older files - remove
-	c = config
+	config.FileLocation = fileLocation // migration step for older files - remove
+	return config
 }
 
 func RetrieveOrCreateChannel(foundChannel slack.Channel, knownChannels []Channel) []Channel {
@@ -61,7 +68,6 @@ func RetrieveOrCreateChannel(foundChannel slack.Channel, knownChannels []Channel
 				ChannelName:   foundChannel.NameNormalized,
 				ChannelId:     foundChannel.ID,
 				EligibleUsers: nil,
-				ExemptUsers:   nil,
 				RecentUsers:   nil,
 			})
 	}

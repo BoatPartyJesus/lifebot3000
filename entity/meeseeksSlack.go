@@ -8,6 +8,11 @@ import (
 	"github.com/slack-go/slack"
 )
 
+type IMeeseeksSlack interface {
+	New(botConfig *MeeseeksConfig)
+	GetAvailableUsers(users []string) []string
+}
+
 type MeeseeksSlack struct {
 	Slack     *slack.Client
 	BotConfig *MeeseeksConfig

@@ -3,14 +3,28 @@ package handler
 import (
 	"fmt"
 	"meeseeks/entity"
+	"meeseeks/util"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
-func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
-	fmt.Println("AddMeHandler")
+type IAddMeHandler interface {
+	AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig, namedUser string) entity.MeeseeksConfig
+}
+
+// TODO: finish mocking implementation
+// type IMessageClient interface{
+// 	PostMessage() (string, string, error)
+// }
+
+func AddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig, namedUser string) entity.MeeseeksConfig {
 	event := ev.InnerEvent.Data.(*slackevents.AppMentionEvent)
+
+	user := namedUser
+	if user == "" {
+		user = event.User
+	}
 
 	for index, ch := range botConfig.Channels {
 		if ch.ChannelId == event.Channel {
@@ -18,11 +32,15 @@ func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, bo
 
 			var message string
 
-			if ch.Find(requiredChannel.EligibleUsers, event.User) {
-				message = fmt.Sprintf("You are already in %s", requiredChannel.ChannelName)
+			if ch.IsEligibleUser(user) {
+				if namedUser == "" {
+					message = fmt.Sprintf("You are already in %s", requiredChannel.ChannelName)
+				} else {
+					message = fmt.Sprintf("<@%s> is already in %s", user, requiredChannel.ChannelName)
+				}
 			} else {
-				requiredChannel.EligibleUsers = append(requiredChannel.EligibleUsers, event.User)
-				message = fmt.Sprintf("OK, I'll add <@%s> to %s", event.User, requiredChannel.ChannelName)
+				requiredChannel.EligibleUsers = ch.AddEligibleUser(user)
+				message = fmt.Sprintf("OK, I'll add <@%s> to %s", user, requiredChannel.ChannelName)
 			}
 
 			_, _, err := client.PostMessage(event.Channel, slack.MsgOptionText(message, false))
@@ -32,16 +50,42 @@ func ChannelAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, bo
 		}
 	}
 
-	botConfig.SaveCurrentState()
+	botConfig.SaveCurrentState(util.OsFileUtility{})
 
 	return botConfig
 }
 
-func MessageAddMeHandler(ev slackevents.EventsAPIEvent, client *slack.Client, botConfig entity.MeeseeksConfig) entity.MeeseeksConfig {
-	fmt.Println("AddMeHandler")
-	event := ev.InnerEvent.Data.(*slackevents.MessageEvent)
+// func InteractionAddMeHandler(ev slack.InteractionCallback, client *slack.Client, botConfig entity.MeeseeksConfig, namedUser string) entity.MeeseeksConfig {
+// 	user := namedUser
+// 	if user == "" {
+// 		user = ev.User.ID
+// 	}
 
-	_, _, _ = client.PostMessage(event.Channel, slack.MsgOptionText("Err... Ok. You win. Congratulations, I guess... :tada:", false))
+// 	for index, ch := range botConfig.Channels {
+// 		if ch.ChannelId == ev.Channel.ID {
+// 			requiredChannel := &botConfig.Channels[index]
 
-	return botConfig
-}
+// 			var message string
+
+// 			if ch.IsEligibleUser(user) {
+// 				if namedUser == "" {
+// 					message = fmt.Sprintf("You are already in %s", requiredChannel.ChannelName)
+// 				} else {
+// 					message = fmt.Sprintf("<@%s> is already in %s", user, requiredChannel.ChannelName)
+// 				}
+// 			} else {
+// 				requiredChannel.EligibleUsers = ch.AddEligibleUser(user)
+// 				message = fmt.Sprintf("OK, I'll add <@%s> to %s", user, requiredChannel.ChannelName)
+// 			}
+
+// 			_, _, err := client.PostMessage(ev.Channel.ID, slack.MsgOptionText(message, false))
+// 			if err != nil {
+// 				fmt.Println(":(")
+// 			}
+// 		}
+// 	}
+
+// 	botConfig.SaveCurrentState()
+
+// 	return botConfig
+// }
